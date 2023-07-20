@@ -71,7 +71,7 @@ class Cache:
         data_key = str(uuid.uuid4())
         self._redis.set(data_key, data)
         return data_key
-    
+
     def get(
             self,
             key: str,
