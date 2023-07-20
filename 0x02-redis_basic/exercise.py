@@ -33,6 +33,30 @@ def call_history(method: Callable) -> Callable:
     return invoker
 
 
+def replay(method: Callable) -> None:
+    ''' display the call history of a Cache class method. '''
+    if method is None or not hasattr(method, '__self__'):
+        return
+    redis_store = getattr(method.__self__, '_redis', None)
+    if not isinstance(redis_store, redis.Redis):
+        return
+    fxn_name = method.__qualname__
+    in_key = '{}:inputs'.format(fxn_name)
+    out_key = '{}:outputs'.format(fxn_name)
+    fxn_call_count = 0
+    if redis_store.exists(fxn_name) != 0:
+        fxn_call_count = int(redis_store.get(fxn_name))
+    print('{} was called {} times:'.format(fxn_name, fxn_call_count))
+    fxn_inputs = redis_store.lrange(in_key, 0, -1)
+    fxn_outputs = redis_store.lrange(out_key, 0, -1)
+    for fxn_input, fxn_output in zip(fxn_inputs, fxn_outputs):
+        print('{}(*{}) -> {}'.format(
+            fxn_name,
+            fxn_input.decode('utf-8'),
+            fxn_output,
+        ))
+
+
 class Cache:
     ''' represent an object for storing data in a Redis data storage. '''
     def __init__(self) -> None:
@@ -51,11 +75,11 @@ class Cache:
     def get(
             self,
             key: str,
-            fn: Callable = None,
+            method: Callable = None,
             ) -> Union[str, bytes, int, float]:
         ''' retrieve a value from a Redis data storage. '''
         data = self._redis.get(key)
-        return fn(data) if fn is not None else data
+        return method(data) if method is not None else data
 
     def get_str(self, key: str) -> str:
         ''' retrieve a string value from a Redis data storage. '''
